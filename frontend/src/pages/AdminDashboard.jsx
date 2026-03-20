@@ -1,6 +1,5 @@
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '../context/AuthContext';
-import { getAdminShops, getAllBookingsForAdmin, updateBookingStatus } from '../lib/supabaseQueries';
 import '../styles/index.css';
 
 const AdminDashboard = () => {
@@ -10,6 +9,10 @@ const AdminDashboard = () => {
   const [stats, setStats] = useState({ totalBookings: 0, pending: 0, washing: 0, ironing: 0, ready: 0, completed: 0, revenue: 0 });
   const [loading, setLoading] = useState(true);
 
+  // ✅ DEBUG: If this does NOT print, routing problem
+  console.log('Admin Page Loaded');
+  console.log('Current user:', user);
+
   useEffect(() => {
     loadDashboardData();
   }, []);
@@ -17,24 +20,40 @@ const AdminDashboard = () => {
   const loadDashboardData = async () => {
     try {
       const [shopsRes, bookingsRes] = await Promise.all([
-        getAdminShops(user.id),
-        getAllBookingsForAdmin(user.id)
+        fetch('http://localhost:5000/admin/shops', {
+          headers: {
+            'Authorization': `Bearer ${user.id}`
+          }
+        }),
+        fetch('http://localhost:5000/admin/bookings', {
+          headers: {
+            'Authorization': `Bearer ${user.id}`
+          }
+        })
       ]);
 
-      setShops(shopsRes || []);
-      setBookings(bookingsRes || []);
+      const shopsData = await shopsRes.json();
+      const bookingsData = await bookingsRes.json();
 
-      // Calculate stats
-      const data = bookingsRes || [];
-      setStats({
-        totalBookings: data.length,
-        pending: data.filter(b => b.status === 'Pending').length,
-        washing: data.filter(b => b.status === 'Washing').length,
-        ironing: data.filter(b => b.status === 'Ironing').length,
-        ready: data.filter(b => b.status === 'Ready').length,
-        completed: data.filter(b => b.status === 'Completed' || b.status === 'Delivered').length,
-        revenue: data.reduce((sum, b) => sum + parseFloat(b.final_amount || 0), 0)
-      });
+      if (shopsRes.ok && shopsData.shops) {
+        setShops(shopsData.shops);
+      }
+
+      if (bookingsRes.ok && bookingsData.bookings) {
+        const data = bookingsData.bookings;
+        setBookings(data);
+
+        // Calculate stats
+        setStats({
+          totalBookings: data.length,
+          pending: data.filter(b => b.status === 'Pending').length,
+          washing: data.filter(b => b.status === 'Washing').length,
+          ironing: data.filter(b => b.status === 'Ironing').length,
+          ready: data.filter(b => b.status === 'Ready').length,
+          completed: data.filter(b => b.status === 'Completed' || b.status === 'Delivered').length,
+          revenue: data.reduce((sum, b) => sum + parseFloat(b.final_amount || 0), 0)
+        });
+      }
     } catch (error) {
       console.error('Failed to load dashboard data:', error);
     } finally {
@@ -44,8 +63,19 @@ const AdminDashboard = () => {
 
   const handleUpdateStatus = async (bookingId, status) => {
     try {
-      await updateBookingStatus(bookingId, status);
-      loadDashboardData();
+      const response = await fetch(`http://localhost:5000/booking/${bookingId}/status`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ status }),
+      });
+
+      if (response.ok) {
+        loadDashboardData();
+      } else {
+        alert('Failed to update status');
+      }
     } catch (error) {
       alert('Failed to update status');
     }
@@ -73,8 +103,8 @@ const AdminDashboard = () => {
       {/* Dashboard Header */}
       <div className="dashboard-header">
         <div>
-          <h1>🏪 Sri Sai Electrical Dry Clean</h1>
-          <p>Welcome back, {user?.name}! | Admin Dashboard</p>
+          <h1>🏪 Admin Dashboard</h1>
+          <p>Welcome back, {user?.name}!</p>
         </div>
       </div>
 
@@ -154,35 +184,43 @@ const AdminDashboard = () => {
             <h2 className="card-title">🏪 Your Shop</h2>
           </div>
           <div className="card-body">
-            <div className="shops-grid">
-              {shops.map(shop => (
-                <div key={shop.id} className="shop-card admin">
-                  <div className="shop-card-header">
-                    <h3 className="shop-card-title">{shop.shop_name}</h3>
-                    <div className="shop-card-rating">⭐ 5.0</div>
+            <div className="shop-card admin">
+              <div className="shop-card-header">
+                <h3 className="shop-card-title">{shops[0].shop_name}</h3>
+                <div className="shop-card-rating">⭐ {shops[0].rating}</div>
+              </div>
+              <div className="shop-card-body">
+                <div className="shop-info">
+                  <div className="shop-info-item">
+                    <span className="shop-info-icon">📍</span>
+                    <span>{shops[0].address}</span>
                   </div>
-                  <div className="shop-card-body">
-                    <div className="shop-info">
-                      <div className="shop-info-item">
-                        <span className="shop-info-icon">📍</span>
-                        <span>{shop.address}, {shop.city}</span>
-                      </div>
-                      <div className="shop-info-item">
-                        <span className="shop-info-icon">📞</span>
-                        <span>{shop.phone}</span>
-                      </div>
-                      <div className="shop-info-item">
-                        <span className="shop-info-icon">📏</span>
-                        <span>{shop.service_radius_km} km service area</span>
-                      </div>
-                      <div className="shop-info-item">
-                        <span className="shop-info-icon">📊</span>
-                        <span>{shop.total_bookings || 0} total bookings</span>
-                      </div>
-                    </div>
+                  <div className="shop-info-item">
+                    <span className="shop-info-icon">📞</span>
+                    <span>{shops[0].phone}</span>
+                  </div>
+                  <div className="shop-info-item">
+                    <span className="shop-info-icon">📏</span>
+                    <span>{shops[0].service_radius_km} km service area</span>
+                  </div>
+                  <div className="shop-info-item">
+                    <span className="shop-info-icon">📊</span>
+                    <span>{shops[0].total_bookings || 0} total bookings</span>
                   </div>
                 </div>
-              ))}
+
+                <div className="shop-services">
+                  <div className="shop-services-title">🧼 Services Available</div>
+                  <div className="service-list">
+                    {shops[0].services.map(service => (
+                      <span key={service.id} className="service-tag">
+                        {service.service_name}
+                        <span className="service-tag-price">₹{service.base_price}</span>
+                      </span>
+                    ))}
+                  </div>
+                </div>
+              </div>
             </div>
           </div>
         </div>

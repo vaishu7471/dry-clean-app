@@ -1,6 +1,4 @@
 import React, { createContext, useState, useContext, useEffect } from 'react';
-import { supabase } from '../lib/supabaseClient';
-import { signIn, signOut, signUp, getCurrentUser, getUserProfile } from '../lib/supabaseAuth';
 
 const AuthContext = createContext(null);
 
@@ -16,114 +14,114 @@ export const AuthProvider = ({ children }) => {
   const [user, setUser] = useState(null);
   const [loading, setLoading] = useState(true);
 
+  // Check if user is already logged in (from localStorage)
   useEffect(() => {
-    checkUser();
-    
-    // Listen for auth changes
-    const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
-      if (session?.user) {
-        await loadUserProfile(session.user.id);
-      } else {
-        setUser(null);
+    const storedUser = localStorage.getItem('user');
+    if (storedUser) {
+      try {
+        setUser(JSON.parse(storedUser));
+      } catch (e) {
+        console.error('Error parsing stored user:', e);
+        localStorage.removeItem('user');
       }
-    });
-
-    return () => {
-      subscription.unsubscribe();
-    };
+    }
+    setLoading(false);
   }, []);
 
-  const checkUser = async () => {
-    try {
-      const { user } = await getCurrentUser();
-      if (user) {
-        await loadUserProfile(user.id);
-      } else {
-        setUser(null);
-      }
-    } catch (error) {
-      console.error('Check user error:', error);
-      setUser(null);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const loadUserProfile = async (userId) => {
-    try {
-      const { data: profile } = await getUserProfile(userId);
-      if (profile) {
-        setUser({
-          id: profile.id,
-          email: profile.email,
-          name: profile.name,
-          phone: profile.phone,
-          role: profile.role,
-          address: profile.address,
-          city: profile.city,
-          pincode: profile.pincode
-        });
-      }
-    } catch (error) {
-      console.error('Load profile error:', error);
-    }
-  };
-
+  // Login function
   const login = async (credentials) => {
     try {
-      const { data, error } = await signIn(credentials.email, credentials.password);
-      
-      if (error) throw error;
+      const response = await fetch('http://localhost:5000/login', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(credentials),
+      });
 
-      // Load user profile
-      await loadUserProfile(data.user.id);
+      const data = await response.json();
 
-      return { success: true, user };
+      if (!response.ok) {
+        return {
+          success: false,
+          error: data.error || 'Login failed',
+        };
+      }
+
+      if (data.success) {
+        // Store user in state and localStorage
+        setUser(data.user);
+        localStorage.setItem('user', JSON.stringify(data.user));
+        
+        return {
+          success: true,
+          user: data.user,
+        };
+      }
+
+      return {
+        success: false,
+        error: data.error || 'Login failed',
+      };
+
     } catch (error) {
       console.error('Login error:', error);
       return {
         success: false,
-        error: error.message || 'Login failed. Please check your credentials.'
+        error: 'Cannot connect to server. Please ensure backend is running.',
       };
     }
   };
 
-  const register = async (data, isAdmin = false) => {
+  // Register function
+  const register = async (userData) => {
     try {
-      const { data: authData, error } = await signUp(
-        data.email,
-        data.password,
-        data.name,
-        data.phone,
-        isAdmin ? 'admin' : 'customer'
-      );
+      const response = await fetch('http://localhost:5000/register', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(userData),
+      });
 
-      if (error) throw error;
+      const data = await response.json();
 
-      // Load user profile
-      if (authData.user) {
-        await loadUserProfile(authData.user.id);
+      if (!response.ok) {
+        return {
+          success: false,
+          error: data.error || 'Registration failed',
+        };
       }
 
-      return { success: true, user };
-    } catch (error) {
-      console.error('Register error:', error);
+      if (data.success) {
+        // Store user in state and localStorage
+        setUser(data.user);
+        localStorage.setItem('user', JSON.stringify(data.user));
+        
+        return {
+          success: true,
+          user: data.user,
+        };
+      }
+
       return {
         success: false,
-        error: error.message || 'Registration failed'
+        error: data.error || 'Registration failed',
+      };
+
+    } catch (error) {
+      console.error('Registration error:', error);
+      return {
+        success: false,
+        error: 'Cannot connect to server. Please ensure backend is running.',
       };
     }
   };
 
-  const logout = async () => {
-    try {
-      await signOut();
-      setUser(null);
-      return { success: true };
-    } catch (error) {
-      console.error('Logout error:', error);
-      return { success: false, error: error.message };
-    }
+  // Logout function
+  const logout = () => {
+    localStorage.removeItem('user');
+    setUser(null);
   };
 
   const value = {

@@ -1,6 +1,5 @@
 import React, { useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
-import { useAuth } from '../context/AuthContext';
 import '../styles/index.css';
 
 const Register = () => {
@@ -20,7 +19,6 @@ const Register = () => {
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
   const [loading, setLoading] = useState(false);
-  const { register } = useAuth();
   const navigate = useNavigate();
 
   const handleSubmit = async (e) => {
@@ -55,17 +53,30 @@ const Register = () => {
       registerData.shop_phone = formData.shop_phone;
     }
 
-    const result = await register(registerData, accountType === 'admin');
-    
-    if (result.success) {
-      setSuccess(`✅ Registration successful! Redirecting...`);
-      setTimeout(() => {
-        navigate(accountType === 'admin' ? '/admin' : '/customer');
-      }, 1500);
-    } else {
-      setError(result.error);
+    try {
+      const response = await fetch('http://localhost:5000/register', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(registerData),
+      });
+
+      const data = await response.json();
+
+      if (response.ok && data.success) {
+        setSuccess('Registered successfully');
+        localStorage.setItem('user', JSON.stringify(data.user));
+        setTimeout(() => {
+          navigate(accountType === 'admin' ? '/admin' : '/customer');
+        }, 1500);
+      } else {
+        setError(data.error || 'Registration failed');
+      }
+    } catch (err) {
+      setError('Cannot connect to server. Please ensure backend is running.');
     }
-    
+
     setLoading(false);
   };
 
@@ -81,15 +92,15 @@ const Register = () => {
 
           {/* Account Type Toggle */}
           <div className="account-type-toggle">
-            <button 
-              className={accountType === 'customer' ? 'active' : ''} 
+            <button
+              className={accountType === 'customer' ? 'active' : ''}
               onClick={() => setAccountType('customer')}
               type="button"
             >
               👤 Customer
             </button>
-            <button 
-              className={accountType === 'admin' ? 'active' : ''} 
+            <button
+              className={accountType === 'admin' ? 'active' : ''}
               onClick={() => setAccountType('admin')}
               type="button"
             >
@@ -102,7 +113,7 @@ const Register = () => {
 
           <form onSubmit={handleSubmit}>
             <div className="form-section-title">👤 Personal Information</div>
-            
+
             <div className="form-row">
               <div className="form-group">
                 <label className="form-label">Full Name *</label>
@@ -213,7 +224,7 @@ const Register = () => {
             {accountType === 'admin' && (
               <>
                 <div className="form-section-title">🏪 Shop Details</div>
-                
+
                 <div className="form-group">
                   <label className="form-label">Shop Name *</label>
                   <input

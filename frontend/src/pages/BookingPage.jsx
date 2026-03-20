@@ -1,7 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
-import { getShopById, createBooking, getUserBookings, cancelBooking, approveBooking } from '../lib/supabaseQueries';
 import '../styles/index.css';
 
 const BookingPage = () => {
@@ -25,7 +24,7 @@ const BookingPage = () => {
   const [success, setSuccess] = useState('');
   const [orderSummary, setOrderSummary] = useState(null);
   const [myBookings, setMyBookings] = useState([]);
-  
+
   const isSubmitting = useRef(false);
 
   useEffect(() => {
@@ -43,13 +42,17 @@ const BookingPage = () => {
 
   const loadServices = async () => {
     try {
-      const { data, error } = await getShopById(shop.id);
-      if (error) throw error;
-      
-      const servicesList = data.services || [];
-      setServices(servicesList);
-      if (servicesList.length > 0) {
-        setSelectedService(servicesList[0].id.toString());
+      const response = await fetch(`http://localhost:5000/shops/${shop.id}`);
+      const data = await response.json();
+
+      if (response.ok && data.shop) {
+        const servicesList = data.shop.services || [];
+        setServices(servicesList);
+        if (servicesList.length > 0) {
+          setSelectedService(servicesList[0].id.toString());
+        }
+      } else {
+        setError('Failed to load services');
       }
     } catch (error) {
       setError('Failed to load services');
@@ -58,9 +61,16 @@ const BookingPage = () => {
 
   const loadMyBookings = async () => {
     try {
-      const { data, error } = await getUserBookings(user.id);
-      if (error) throw error;
-      setMyBookings(data || []);
+      const response = await fetch('http://localhost:5000/bookings', {
+        headers: {
+          'Authorization': `Bearer ${user.id}`
+        }
+      });
+      const data = await response.json();
+
+      if (response.ok && data.bookings) {
+        setMyBookings(data.bookings);
+      }
     } catch (error) {
       console.error('Failed to load bookings:', error);
     }
@@ -133,25 +143,36 @@ const BookingPage = () => {
         status: 'Pending'
       };
 
-      const { data, error } = await createBooking(bookingData);
-      if (error) throw error;
+      const response = await fetch('http://localhost:5000/book', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(bookingData),
+      });
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(data.error || 'Failed to create booking');
+      }
 
       const newBooking = {
-        id: data.id,
-        booking_number: data.booking_number,
+        id: data.booking.id,
+        booking_number: data.booking.booking_number,
         shop_name: shop.shop_name,
         service_name: services.find(s => s.id === parseInt(selectedService))?.service_name,
         cloth_type: formData.cloth_type,
         quantity: formData.quantity,
-        final_amount: data.final_amount,
+        final_amount: data.booking.final_amount,
         pickup_date: formData.pickup_date,
-        delivery_date: data.delivery_date,
+        delivery_date: data.booking.delivery_date,
         status: 'Pending',
         customer_approved: false
       };
 
       setMyBookings(prev => [newBooking, ...prev]);
-      setSuccess(`✅ Booking confirmed! #${data.booking_number}`);
+      setSuccess(`✅ Booking confirmed! #${data.booking.booking_number}`);
 
       setFormData({
         cloth_type: '',
@@ -183,8 +204,16 @@ const BookingPage = () => {
   const handleCancel = async (bookingId) => {
     if (!window.confirm('Cancel this booking?')) return;
     try {
-      await cancelBooking(bookingId);
-      loadMyBookings();
+      const response = await fetch(`http://localhost:5000/booking/${bookingId}`, {
+        method: 'DELETE',
+      });
+
+      if (response.ok) {
+        loadMyBookings();
+      } else {
+        const data = await response.json();
+        alert(data.error || 'Failed to cancel');
+      }
     } catch (error) {
       alert('Failed to cancel');
     }
@@ -192,9 +221,17 @@ const BookingPage = () => {
 
   const handleApprove = async (bookingId) => {
     try {
-      await approveBooking(bookingId);
-      loadMyBookings();
-      alert('Thank you for your feedback!');
+      const response = await fetch(`http://localhost:5000/booking/${bookingId}/approve`, {
+        method: 'PUT',
+      });
+
+      if (response.ok) {
+        loadMyBookings();
+        alert('Thank you for your feedback!');
+      } else {
+        const data = await response.json();
+        alert(data.error || 'Failed to approve');
+      }
     } catch (error) {
       alert('Failed to approve');
     }

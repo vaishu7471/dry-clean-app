@@ -1,300 +1,402 @@
-# ✨ Shine Dry Clean - Frontend Only
+# 🚀 Shine Dry Clean - Setup Guide
 
-A modern dry cleaning management system built with React and Supabase.
+## 📋 Project Structure
 
-## 🚀 Quick Start
-
-### Prerequisites
-- Node.js 16+ installed
-- Supabase account (free tier works)
-
-### Installation
-
-1. **Install dependencies:**
-```bash
-cd frontend
-npm install
+```
+dry-clean/
+├── backend/              # Node.js + Express backend
+│   ├── server.js         # Main server file
+│   ├── package.json      # Backend dependencies
+│   └── .env              # Backend config (if needed)
+├── frontend/             # React + Vite frontend
+│   ├── src/
+│   │   ├── pages/        # Page components
+│   │   ├── context/      # AuthContext
+│   │   └── ...
+│   ├── .env              # Frontend config
+│   └── package.json
+└── README.md             # This file
 ```
 
-2. **Setup Supabase:**
-   - Create account at https://supabase.com
-   - Create new project
-   - Run SQL schema (see below)
-   - Get your credentials
+---
 
-3. **Configure environment:**
+## ⚡ Quick Start (5 minutes)
+
+### Step 1: Start Backend
+
+Open **Terminal 1**:
 ```bash
-# Create .env file
-cp .env.example .env
-
-# Edit .env with your Supabase credentials
-VITE_SUPABASE_URL=your_supabase_url
-VITE_SUPABASE_ANON_KEY=your_supabase_anon_key
+cd /home/vaishnavi/Desktop/dry-clean/backend
+npm install          # First time only
+npm start
 ```
 
-4. **Start development:**
+You should see:
+```
+🚀 Server running on http://localhost:5000
+📝 API available at:
+   POST http://localhost:5000/register
+   POST http://localhost:5000/login
+   GET  http://localhost:5000/users
+```
+
+### Step 2: Start Frontend
+
+Open **Terminal 2**:
 ```bash
+cd /home/vaishnavi/Desktop/dry-clean/frontend
+npm install          # First time only
 npm run dev
 ```
 
-Open http://localhost:3000
+You should see:
+```
+VITE ready in 500ms
+➜  Local:   http://localhost:3000/
+```
+
+### Step 3: Open Browser
+
+Go to: **http://localhost:3000**
 
 ---
 
-## 📋 Supabase Setup
+## 🔐 Test the Application
 
-### 1. Create Project
-1. Go to https://supabase.com
-2. Click "New Project"
-3. Fill in project details
-4. Wait for setup (2-3 minutes)
+### 1. Register a New User
 
-### 2. Run SQL Schema
+1. Click **"Register"** on the homepage
+2. Fill in the form:
+   - Name: `John Doe`
+   - Email: `john@example.com`
+   - Phone: `9876543210`
+   - Password: `password123`
+   - Confirm Password: `password123`
+   - Address: `123 Main Street`
+   - City: `Mumbai`
+   - Pincode: `400001`
+3. Click **"Create Account"**
+4. **Expected:** ✅ Registration successful! Redirected to dashboard
 
-Go to SQL Editor and run:
+### 2. Login
 
-```sql
--- Enable UUID
-CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
+1. Click **"Logout"** (if logged in)
+2. Click **"Login"**
+3. Enter:
+   - Email: `john@example.com`
+   - Password: `password123`
+4. Click **"Login"**
+5. **Expected:** ✅ Login successful, redirected to dashboard
 
--- Profiles table
-CREATE TABLE profiles (
-  id UUID REFERENCES auth.users ON DELETE CASCADE PRIMARY KEY,
-  name TEXT NOT NULL,
-  email TEXT NOT NULL,
-  phone TEXT,
-  role TEXT DEFAULT 'customer' CHECK (role IN ('customer', 'admin')),
-  address TEXT,
-  city TEXT,
-  pincode TEXT,
-  is_first_time BOOLEAN DEFAULT true,
-  created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
-  updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
-);
+### 3. Test Error Cases
 
--- Shops table
-CREATE TABLE shops (
-  id BIGSERIAL PRIMARY KEY,
-  owner_id UUID REFERENCES profiles(id) ON DELETE CASCADE,
-  shop_name TEXT NOT NULL,
-  owner_name TEXT NOT NULL,
-  phone TEXT NOT NULL,
-  address TEXT NOT NULL,
-  city TEXT,
-  pincode TEXT,
-  service_radius_km INTEGER DEFAULT 20,
-  is_active BOOLEAN DEFAULT true,
-  created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
-);
+**Wrong Password:**
+- Email: `john@example.com`
+- Password: `wrongpassword`
+- **Expected:** ❌ Invalid email or password
 
--- Services table
-CREATE TABLE services (
-  id BIGSERIAL PRIMARY KEY,
-  shop_id BIGINT REFERENCES shops(id) ON DELETE CASCADE,
-  service_name TEXT NOT NULL,
-  service_type TEXT,
-  base_price DECIMAL(10,2) NOT NULL,
-  price_per_unit TEXT DEFAULT 'piece',
-  description TEXT,
-  is_active BOOLEAN DEFAULT true,
-  created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
-);
+**Non-existent User:**
+- Email: `nobody@example.com`
+- Password: `password123`
+- **Expected:** ❌ Invalid email or password
 
--- Bookings table
-CREATE TABLE bookings (
-  id BIGSERIAL PRIMARY KEY,
-  booking_number TEXT UNIQUE NOT NULL,
-  customer_id UUID REFERENCES profiles(id) ON DELETE CASCADE,
-  shop_id BIGINT REFERENCES shops(id) ON DELETE CASCADE,
-  service_id BIGINT REFERENCES services(id) ON DELETE CASCADE,
-  cloth_type TEXT NOT NULL,
-  quantity INTEGER DEFAULT 1,
-  total_amount DECIMAL(10,2) NOT NULL,
-  discount DECIMAL(10,2) DEFAULT 0,
-  final_amount DECIMAL(10,2) NOT NULL,
-  status TEXT DEFAULT 'Pending',
-  pickup_date DATE,
-  delivery_date DATE,
-  pickup_address TEXT,
-  special_instructions TEXT,
-  customer_approved BOOLEAN DEFAULT false,
-  created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
-  updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
-);
+**Duplicate Email:**
+- Try to register with `john@example.com` again
+- **Expected:** ❌ User with this email already exists
 
--- Enable RLS
-ALTER TABLE profiles ENABLE ROW LEVEL SECURITY;
-ALTER TABLE bookings ENABLE ROW LEVEL SECURITY;
-ALTER TABLE shops ENABLE ROW LEVEL SECURITY;
-ALTER TABLE services ENABLE ROW LEVEL SECURITY;
+---
 
--- RLS Policies
-CREATE POLICY "Users can view own profile" ON profiles FOR SELECT USING (auth.uid() = id);
-CREATE POLICY "Users can update own profile" ON profiles FOR UPDATE USING (auth.uid() = id);
-CREATE POLICY "Users can insert own profile" ON profiles FOR INSERT WITH CHECK (auth.uid() = id);
+## 🛠️ Backend API Reference
 
-CREATE POLICY "Customers can view own bookings" ON bookings FOR SELECT USING (auth.uid() = customer_id);
-CREATE POLICY "Customers can create bookings" ON bookings FOR INSERT WITH CHECK (auth.uid() = customer_id);
-CREATE POLICY "Customers can update own bookings" ON bookings FOR UPDATE USING (auth.uid() = customer_id);
+### POST /register
 
-CREATE POLICY "Anyone can view active shops" ON shops FOR SELECT USING (is_active = true);
-CREATE POLICY "Anyone can view active services" ON services FOR SELECT USING (is_active = true);
+**Register a new user**
 
--- Function to create profile on signup
-CREATE OR REPLACE FUNCTION public.handle_new_user()
-RETURNS TRIGGER AS $$
-BEGIN
-  INSERT INTO public.profiles (id, name, email, phone, role)
-  VALUES (NEW.id, NEW.raw_user_meta_data->>'name', NEW.email, NEW.raw_user_meta_data->>'phone', COALESCE(NEW.raw_user_meta_data->>'role', 'customer'));
-  RETURN NEW;
-END;
-$$ LANGUAGE plpgsql SECURITY DEFINER;
-
--- Trigger
-CREATE TRIGGER on_auth_user_created AFTER INSERT ON auth.users FOR EACH ROW EXECUTE FUNCTION public.handle_new_user();
+**Request:**
+```json
+{
+  "name": "John Doe",
+  "email": "john@example.com",
+  "password": "password123",
+  "phone": "9876543210"
+}
 ```
 
-### 3. Create Test Users
-
-1. Go to Authentication → Users
-2. Click "Add user"
-3. Create:
-   - Email: `admin@shinedryclean.com`, Password: `admin123`
-   - Email: `customer@shinedryclean.com`, Password: `customer123`
-
-### 4. Add Sample Data
-
-**Add Shop:**
-```sql
-INSERT INTO shops (owner_id, shop_name, owner_name, phone, address, city, pincode, service_radius_km, is_active)
-VALUES ('YOUR_ADMIN_USER_ID', 'Sri Sai Electrical Dry Cleaning', 'Sri Sai Admin', '9876543210', 'Main Street', 'Mumbai', '400001', 20, true);
+**Response (Success):**
+```json
+{
+  "success": true,
+  "message": "Registration successful",
+  "user": {
+    "id": 1,
+    "name": "John Doe",
+    "email": "john@example.com",
+    "phone": "9876543210",
+    "role": "customer"
+  }
+}
 ```
 
-**Add Services:**
-```sql
-INSERT INTO services (shop_id, service_name, service_type, base_price, price_per_unit, description) VALUES
-(1, 'Pant / Shirt (White)', 'Wash', 100.00, 'piece', 'Professional white clothes cleaning'),
-(1, 'Saree', 'Wash', 130.00, 'piece', 'Regular saree cleaning'),
-(1, 'Suit / Blazer', 'Dry Clean', 400.00, 'piece', 'Professional dry cleaning'),
-(1, 'Steam Iron', 'Iron', 50.00, 'piece', 'Steam ironing per cloth');
+**Response (Error - Duplicate Email):**
+```json
+{
+  "success": false,
+  "error": "User with this email already exists"
+}
 ```
 
 ---
 
-## 🎯 Features
+### POST /login
 
-- ✅ User Registration & Login
-- ✅ Book Dry Cleaning Services
-- ✅ View Orders (Customer)
-- ✅ Manage Orders (Admin)
-- ✅ Real-time Updates
-- ✅ Responsive Design
-- ✅ First-time Discount (20%)
-- ✅ Promo Code Support
+**Login existing user**
+
+**Request:**
+```json
+{
+  "email": "john@example.com",
+  "password": "password123"
+}
+```
+
+**Response (Success):**
+```json
+{
+  "success": true,
+  "message": "Login successful",
+  "user": {
+    "id": 1,
+    "name": "John Doe",
+    "email": "john@example.com",
+    "role": "customer"
+  }
+}
+```
+
+**Response (Error):**
+```json
+{
+  "success": false,
+  "error": "Invalid email or password"
+}
+```
 
 ---
 
-## 🚀 Deploy to Vercel
+### GET /users
 
-### 1. Push to GitHub
+**Get all registered users** (for testing)
 
+**Response:**
+```json
+{
+  "success": true,
+  "users": [
+    {
+      "id": 1,
+      "name": "John Doe",
+      "email": "john@example.com",
+      "role": "customer"
+    }
+  ]
+}
+```
+
+---
+
+## 📁 Frontend Configuration
+
+### .env File
+
+Located at: `/frontend/.env`
+
+```env
+VITE_API_URL=http://localhost:5000
+```
+
+This tells the frontend where to find the backend API.
+
+---
+
+## 🔧 Troubleshooting
+
+### "Cannot connect to server"
+
+**Problem:** Frontend shows "Cannot connect to server. Please ensure backend is running."
+
+**Solution:**
+1. Make sure backend is running in Terminal 1
+2. Check if port 5000 is available
+3. Verify `.env` file has correct URL
+
+**Check:**
+```bash
+curl http://localhost:5000/health
+```
+
+Should return: `{"status":"OK","message":"Backend is running"}`
+
+---
+
+### "Registration failed"
+
+**Possible causes:**
+1. Backend not running
+2. Email already exists
+3. Missing required fields
+
+**Solution:**
+1. Check backend console for errors
+2. Try different email
+3. Fill all required fields (name, email, password)
+
+---
+
+### "Login failed"
+
+**Possible causes:**
+1. Backend not running
+2. Wrong email or password
+3. User doesn't exist
+
+**Solution:**
+1. Check backend is running
+2. Verify credentials
+3. Register first if new user
+
+---
+
+### Port Already in Use
+
+**Error:** `Error: listen EADDRINUSE: address already in use :::5000`
+
+**Solution:**
+```bash
+# Find process using port 5000
+lsof -i :5000
+
+# Kill the process
+kill -9 <PID>
+```
+
+Or change the port in `backend/server.js`:
+```javascript
+const PORT = 5001; // Change to different port
+```
+
+---
+
+## 🎯 Features Working
+
+| Feature | Status | Notes |
+|---------|--------|-------|
+| User Registration | ✅ | Stores in memory |
+| User Login | ✅ | Password hashing with bcrypt |
+| Duplicate Prevention | ✅ | Checks email before register |
+| Error Handling | ✅ | Proper error messages |
+| Session Persistence | ✅ | User stays logged in |
+| Logout | ✅ | Clears session |
+
+---
+
+## 📝 Important Notes
+
+### 1. In-Memory Storage
+
+**Current:** Users are stored in memory (array in `server.js`)
+
+**Limitation:** Users are lost when server restarts
+
+**For Production:** Replace with a database (MongoDB, PostgreSQL, etc.)
+
+---
+
+### 2. Password Security
+
+**Current:** Passwords are hashed using bcryptjs
+
+**Hash Strength:** 10 rounds (good for development)
+
+**For Production:** Increase to 12+ rounds
+
+---
+
+### 3. CORS
+
+**Current:** CORS enabled for all origins (`app.use(cors())`)
+
+**For Production:** Restrict to specific origin:
+```javascript
+app.use(cors({
+  origin: 'https://your-frontend.vercel.app'
+}));
+```
+
+---
+
+## 🚀 Next Steps
+
+### To Add More Features:
+
+1. **Add Database:**
+   - MongoDB with Mongoose
+   - PostgreSQL with pg
+   - SQLite with better-sqlite3
+
+2. **Add JWT Authentication:**
+   - Generate JWT token on login
+   - Verify token on protected routes
+
+3. **Add More Endpoints:**
+   - GET /profile - Get user profile
+   - PUT /profile - Update profile
+   - POST /logout - Logout (with JWT)
+
+4. **Add Validation:**
+   - Email format validation
+   - Phone number validation
+   - Password strength requirements
+
+---
+
+## 📞 Support
+
+### Common Issues:
+
+**1. Backend won't start:**
+```bash
+cd backend
+npm install
+npm start
+```
+
+**2. Frontend won't start:**
 ```bash
 cd frontend
-git init
-git add .
-git commit -m "Initial commit"
-git remote add origin https://github.com/yourusername/shine-dry-clean.git
-git push -u origin main
+npm install
+npm run dev
 ```
 
-### 2. Deploy on Vercel
-
-1. Go to https://vercel.com
-2. Click "New Project"
-3. Import your GitHub repo
-4. **Add Environment Variables:**
-   ```
-   VITE_SUPABASE_URL = https://your-project.supabase.co
-   VITE_SUPABASE_ANON_KEY = your-anon-key
-   ```
-5. Click "Deploy"
-
-### 3. Update Supabase URLs
-
-1. Go to Supabase Dashboard
-2. Authentication → URL Configuration
-3. Add your Vercel domain to:
-   - Site URL
-   - Redirect URLs
+**3. Can't login/register:**
+- Check browser console (F12)
+- Check backend terminal for errors
+- Verify backend is running on port 5000
 
 ---
 
-## 📁 Project Structure
+## ✅ Success Checklist
 
-```
-frontend/
-├── src/
-│   ├── components/        # Reusable components
-│   │   └── Navbar.jsx
-│   ├── context/           # React Context
-│   │   └── AuthContext.jsx
-│   ├── lib/               # Supabase utilities
-│   │   ├── supabaseClient.js
-│   │   ├── supabaseAuth.js
-│   │   └── supabaseQueries.js
-│   ├── pages/             # Page components
-│   │   ├── Home.jsx
-│   │   ├── Login.jsx
-│   │   ├── Register.jsx
-│   │   ├── BookingPage.jsx
-│   │   ├── AdminDashboard.jsx
-│   │   └── ...
-│   ├── styles/            # CSS files
-│   │   └── index.css
-│   ├── App.jsx            # Main app
-│   └── main.jsx           # Entry point
-├── .env                   # Environment variables
-├── package.json
-└── vite.config.js
-```
+- [ ] Backend starts without errors
+- [ ] Frontend starts without errors
+- [ ] Can access http://localhost:3000
+- [ ] Can register new user
+- [ ] Can login with registered user
+- [ ] Can logout
+- [ ] Error messages show correctly
+- [ ] Success messages show correctly
 
 ---
 
-## 🔐 Test Credentials
+**Your Shine Dry Clean app is ready! 🎉**
 
-**Customer:**
-- Email: `customer@shinedryclean.com`
-- Password: `customer123`
-
-**Admin:**
-- Email: `admin@shinedryclean.com`
-- Password: `admin123`
-
----
-
-## 🛠️ Tech Stack
-
-- **Frontend:** React 18, Vite, React Router
-- **Backend:** Supabase (PostgreSQL, Auth, RLS)
-- **Styling:** Custom CSS
-- **Deployment:** Vercel
-
----
-
-## 📝 License
-
-MIT License
-
----
-
-## 💡 Support
-
-For issues or questions:
-1. Check browser console for errors
-2. Verify Supabase credentials in `.env`
-3. Ensure RLS policies are set up correctly
-4. Check Supabase logs in dashboard
-
----
-
-**Built with ❤️ using Supabase**
+**Start both terminals and enjoy!**

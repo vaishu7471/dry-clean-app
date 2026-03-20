@@ -1,28 +1,53 @@
 import React, { useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
-import { useAuth } from '../context/AuthContext';
 import '../styles/index.css';
 
 const Login = () => {
   const [formData, setFormData] = useState({ email: '', password: '' });
   const [error, setError] = useState('');
+  const [success, setSuccess] = useState('');
   const [loading, setLoading] = useState(false);
-  const { login } = useAuth();
   const navigate = useNavigate();
 
   const handleSubmit = async (e) => {
     e.preventDefault();
     setError('');
+    setSuccess('');
     setLoading(true);
 
-    const result = await login(formData);
-    
-    if (result.success) {
-      navigate(result.user.role === 'admin' ? '/admin' : '/customer');
-    } else {
-      setError(result.error);
+    try {
+      const response = await fetch('http://localhost:5000/login', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(formData),
+      });
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        setError(data.message || data.error || 'Login failed');
+        setLoading(false);
+        return;
+      }
+
+      // ✅ SAVE USER PROPERLY
+      localStorage.setItem('user', JSON.stringify(data.user));
+
+      // ✅ DEBUG
+      console.log('Logged in user:', data.user);
+
+      // ✅ ROLE CHECK
+      if (data.user.role === 'admin') {
+        navigate('/admin');
+      } else {
+        navigate('/customer');
+      }
+    } catch (err) {
+      setError('Cannot connect to server. Please ensure backend is running.');
     }
-    
+
     setLoading(false);
   };
 
@@ -38,6 +63,7 @@ const Login = () => {
           </div>
 
           {error && <div className="error-message">{error}</div>}
+          {success && <div className="success-message">{success}</div>}
 
           <form onSubmit={handleSubmit}>
             <div className="form-group">
@@ -75,8 +101,8 @@ const Login = () => {
             </p>
             <div className="info-box" style={{ background: 'var(--bg-tertiary)', padding: 'var(--space-4)', borderRadius: 'var(--radius)', marginTop: 'var(--space-4)' }}>
               <p style={{ fontWeight: 600, marginBottom: 'var(--space-2)', fontSize: '0.875rem' }}>📋 Demo Credentials:</p>
-              <p style={{ fontSize: '0.875rem', marginBottom: 'var(--space-1)' }}>Admin: admin@shinedryclean.com / admin123</p>
-              <p style={{ fontSize: '0.875rem' }}>Customer: customer@shinedryclean.com / customer123</p>
+              <p style={{ fontSize: '0.875rem', marginBottom: 'var(--space-1)' }}>Admin: admin@gmail.com / admin123</p>
+              <p style={{ fontSize: '0.875rem' }}>Customer: user@gmail.com / user123</p>
             </div>
           </div>
         </div>

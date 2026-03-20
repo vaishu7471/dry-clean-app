@@ -6,8 +6,12 @@ import Home from './pages/Home';
 import Login from './pages/Login';
 import Register from './pages/Register';
 import AdminDashboard from './pages/AdminDashboard';
+import CustomerDashboard from './pages/CustomerDashboard';
 import BookingPage from './pages/BookingPage';
 import './styles/index.css';
+
+// Helper to get user from localStorage
+const getUser = () => JSON.parse(localStorage.getItem('user'));
 
 // Protected Route Component
 const ProtectedRoute = ({ children, role }) => {
@@ -22,7 +26,7 @@ const ProtectedRoute = ({ children, role }) => {
   }
 
   if (role && user.role !== role) {
-    return <Navigate to="/" />;
+    return <Navigate to="/login" />;
   }
 
   return children;
@@ -41,17 +45,22 @@ function AppContent() {
             <Route path="/login" element={<Login />} />
             <Route path="/register" element={<Register />} />
 
-            {/* Admin Routes */}
-            <Route path="/admin" element={
-              <ProtectedRoute role="admin">
-                <AdminDashboard />
-              </ProtectedRoute>
-            } />
+            {/* Admin Routes - Direct localStorage check */}
+            <Route
+              path="/admin"
+              element={
+                getUser()?.role === 'admin' ? (
+                  <AdminDashboard />
+                ) : (
+                  <Navigate to="/login" />
+                )
+              }
+            />
 
             {/* Customer Routes */}
             <Route path="/customer" element={
               <ProtectedRoute role="customer">
-                <Navigate to="/book" />
+                <CustomerDashboard />
               </ProtectedRoute>
             } />
 
