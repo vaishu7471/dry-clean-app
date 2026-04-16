@@ -1,5 +1,7 @@
 import React, { createContext, useState, useContext, useEffect } from 'react';
 
+const API_BASE_URL = import.meta.env.VITE_API_URL || 'API_BASE_URL';
+
 const AuthContext = createContext(null);
 
 export const useAuth = () => {
@@ -11,27 +13,23 @@ export const useAuth = () => {
 };
 
 export const AuthProvider = ({ children }) => {
-  const [user, setUser] = useState(null);
-  const [loading, setLoading] = useState(true);
-
-  // Check if user is already logged in (from localStorage)
-  useEffect(() => {
-    const storedUser = localStorage.getItem('user');
-    if (storedUser) {
-      try {
-        setUser(JSON.parse(storedUser));
-      } catch (e) {
-        console.error('Error parsing stored user:', e);
-        localStorage.removeItem('user');
-      }
+  const [user, setUser] = useState(() => {
+    // Initialize from localStorage immediately to prevent flicker
+    try {
+      const storedUser = localStorage.getItem('user');
+      return storedUser ? JSON.parse(storedUser) : null;
+    } catch (e) {
+      console.error('Error parsing stored user:', e);
+      localStorage.removeItem('user');
+      return null;
     }
-    setLoading(false);
-  }, []);
+  });
+  const [loading, setLoading] = useState(false); // Set to false since we load synchronously
 
   // Login function
   const login = async (credentials) => {
     try {
-      const response = await fetch('http://localhost:5000/login', {
+      const response = await fetch('API_BASE_URL/login', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -76,7 +74,7 @@ export const AuthProvider = ({ children }) => {
   // Register function
   const register = async (userData) => {
     try {
-      const response = await fetch('http://localhost:5000/register', {
+      const response = await fetch('API_BASE_URL/register', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',

@@ -3,6 +3,8 @@ import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import '../styles/index.css';
 
+const API_BASE_URL = import.meta.env.VITE_API_URL || 'API_BASE_URL';
+
 const CustomerDashboard = () => {
   const { user } = useAuth();
   const navigate = useNavigate();
@@ -17,7 +19,7 @@ const CustomerDashboard = () => {
 
   const loadShops = async () => {
     try {
-      const response = await fetch('http://localhost:5000/shops');
+      const response = await fetch('API_BASE_URL/shops');
       const data = await response.json();
 
       if (response.ok && data.shops) {
@@ -32,7 +34,7 @@ const CustomerDashboard = () => {
 
   const loadBookings = async () => {
     try {
-      const response = await fetch('http://localhost:5000/bookings', {
+      const response = await fetch('API_BASE_URL/bookings', {
         headers: {
           'Authorization': `Bearer ${user.id}`
         }

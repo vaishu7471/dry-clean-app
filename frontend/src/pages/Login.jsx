@@ -2,6 +2,8 @@ import React, { useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import '../styles/index.css';
 
+const API_BASE_URL = import.meta.env.VITE_API_URL || 'API_BASE_URL';
+
 const Login = () => {
   const [formData, setFormData] = useState({ email: '', password: '' });
   const [error, setError] = useState('');
@@ -16,7 +18,7 @@ const Login = () => {
     setLoading(true);
 
     try {
-      const response = await fetch('http://localhost:5000/login', {
+      const response = await fetch('API_BASE_URL/login', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -99,11 +101,6 @@ const Login = () => {
             <p className="auth-footer">
               Don't have an account? <Link to="/register" style={{ color: 'var(--primary)', fontWeight: 600 }}>Register here</Link>
             </p>
-            <div className="info-box" style={{ background: 'var(--bg-tertiary)', padding: 'var(--space-4)', borderRadius: 'var(--radius)', marginTop: 'var(--space-4)' }}>
-              <p style={{ fontWeight: 600, marginBottom: 'var(--space-2)', fontSize: '0.875rem' }}>📋 Demo Credentials:</p>
-              <p style={{ fontSize: '0.875rem', marginBottom: 'var(--space-1)' }}>Admin: admin@gmail.com / admin123</p>
-              <p style={{ fontSize: '0.875rem' }}>Customer: user@gmail.com / user123</p>
-            </div>
           </div>
         </div>
       </div>

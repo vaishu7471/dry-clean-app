@@ -1,61 +1,113 @@
 const express = require('express');
 const cors = require('cors');
 const bcrypt = require('bcryptjs');
+const Database = require('better-sqlite3');
+const path = require('path');
 
 const app = express();
-const PORT = 5000;
+const PORT = process.env.PORT || 5000;
 
-// Middleware
+// ==================== DATABASE SETUP ====================
+
+const dbPath = process.env.DATABASE_PATH || path.join(__dirname, 'dryclean.db');
+const db = new Database(dbPath);
+
+// Enable foreign keys
+db.pragma('foreign_keys = ON');
+
+// Create tables
+db.exec(`
+  CREATE TABLE IF NOT EXISTS users (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    name TEXT NOT NULL,
+    email TEXT UNIQUE NOT NULL,
+    password TEXT NOT NULL,
+    phone TEXT,
+    role TEXT DEFAULT 'customer',
+    address TEXT,
+    city TEXT,
+    pincode TEXT,
+    shop_name TEXT,
+    shop_phone TEXT,
+    createdAt TEXT DEFAULT CURRENT_TIMESTAMP
+  );
+
+  CREATE TABLE IF NOT EXISTS shops (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    shop_name TEXT NOT NULL,
+    address TEXT,
+    city TEXT,
+    pincode TEXT,
+    phone TEXT,
+    service_radius_km INTEGER DEFAULT 5,
+    total_bookings INTEGER DEFAULT 0,
+    rating REAL DEFAULT 4.5
+  );
+
+  CREATE TABLE IF NOT EXISTS services (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    shop_id INTEGER NOT NULL,
+    service_name TEXT NOT NULL,
+    service_type TEXT NOT NULL,
+    base_price REAL NOT NULL,
+    FOREIGN KEY (shop_id) REFERENCES shops(id) ON DELETE CASCADE
+  );
+
+  CREATE TABLE IF NOT EXISTS bookings (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    booking_number TEXT UNIQUE NOT NULL,
+    customer_id INTEGER NOT NULL,
+    shop_id INTEGER NOT NULL,
+    service_id INTEGER NOT NULL,
+    cloth_type TEXT,
+    quantity INTEGER DEFAULT 1,
+    total_amount REAL DEFAULT 0,
+    discount REAL DEFAULT 0,
+    final_amount REAL DEFAULT 0,
+    pickup_date TEXT NOT NULL,
+    delivery_date TEXT NOT NULL,
+    pickup_address TEXT,
+    special_instructions TEXT,
+    status TEXT DEFAULT 'Pending',
+    customer_approved INTEGER DEFAULT 0,
+    createdAt TEXT DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (customer_id) REFERENCES users(id) ON DELETE CASCADE,
+    FOREIGN KEY (shop_id) REFERENCES shops(id) ON DELETE CASCADE,
+    FOREIGN KEY (service_id) REFERENCES services(id) ON DELETE CASCADE
+  );
+`);
+
+console.log('✅ Database initialized successfully');
+
+// Check if shop exists, if not create default shop (needed for business operations)
+const existingShop = db.prepare('SELECT id FROM shops').get();
+if (!existingShop) {
+  db.prepare(`
+    INSERT INTO shops (shop_name, address, city, pincode, phone, service_radius_km)
+    VALUES (?, ?, ?, ?, ?, ?)
+  `).run('Sri Sai Electrical Dry Clean', 'Manikonda, Hyderabad', 'Hyderabad', '500008', '9876543210', 5);
+
+  // Add default services
+  const shopId = 1;
+  const services = [
+    ['Shirt/Pant', 'Wash', 100],
+    ['Saree', 'Wash', 150],
+    ['Suit/Blazer', 'Dry Clean', 400],
+    ['Steam Iron', 'Iron', 50],
+    ['Bed Sheet', 'Wash', 80],
+    ['Curtain', 'Wash', 200]
+  ];
+
+  const insertService = db.prepare('INSERT INTO services (shop_id, service_name, service_type, base_price) VALUES (?, ?, ?, ?)');
+  for (const [name, type, price] of services) {
+    insertService.run(shopId, name, type, price);
+  }
+  console.log('✅ Default shop and services created');
+}
+
+// ==================== MIDDLEWARE ====================
 app.use(cors());
 app.use(express.json());
-
-// ==================== IN-MEMORY STORAGE ====================
-
-// Demo users (hardcoded for testing)
-const users = [
-  {
-    id: 1,
-    name: 'Admin User',
-    email: 'admin@gmail.com',
-    password: bcrypt.hashSync('admin123', 10),
-    role: 'admin',
-    phone: '9876543210'
-  },
-  {
-    id: 2,
-    name: 'Customer User',
-    email: 'user@gmail.com',
-    password: bcrypt.hashSync('user123', 10),
-    role: 'customer',
-    phone: '9123456789'
-  }
-];
-
-// Single shop data
-const shops = [
-  {
-    id: 1,
-    shop_name: 'Sri Sai Electrical Dry Clean',
-    address: 'Manikonda, Hyderabad',
-    city: 'Hyderabad',
-    pincode: '500008',
-    phone: '9876543210',
-    service_radius_km: 5,
-    total_bookings: 0,
-    rating: 4.5,
-    services: [
-      { id: 1, service_name: 'Shirt/Pant', service_type: 'Wash', base_price: 100 },
-      { id: 2, service_name: 'Saree', service_type: 'Wash', base_price: 150 },
-      { id: 3, service_name: 'Suit/Blazer', service_type: 'Dry Clean', base_price: 400 },
-      { id: 4, service_name: 'Steam Iron', service_type: 'Iron', base_price: 50 },
-      { id: 5, service_name: 'Bed Sheet', service_type: 'Wash', base_price: 80 },
-      { id: 6, service_name: 'Curtain', service_type: 'Wash', base_price: 200 }
-    ]
-  }
-];
-
-// Bookings array
-const bookings = [];
 
 // ==================== AUTH ROUTES ====================
 
@@ -73,7 +125,7 @@ app.post('/register', async (req, res) => {
     }
 
     // Check if user already exists
-    const existingUser = users.find(u => u.email === email);
+    const existingUser = db.prepare('SELECT id FROM users WHERE email = ?').get(email);
     if (existingUser) {
       return res.status(400).json({
         success: false,
@@ -87,28 +139,27 @@ app.post('/register', async (req, res) => {
     // Determine role based on shop_name presence
     const role = shop_name ? 'admin' : 'customer';
 
-    // Create new user
+    // Insert new user
+    const result = db.prepare(`
+      INSERT INTO users (name, email, password, phone, role, address, city, pincode, shop_name, shop_phone)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    `).run(name, email, hashedPassword, phone || '', role, address || '', city || '', pincode || '', shop_name || '', shop_phone || '');
+
     const newUser = {
-      id: users.length + 1,
+      id: result.lastInsertRowid,
       name,
       email,
       phone: phone || '',
-      password: hashedPassword,
       role,
       address: address || '',
       city: city || '',
       pincode: pincode || '',
       shop_name: shop_name || '',
-      shop_phone: shop_phone || '',
-      createdAt: new Date().toISOString()
+      shop_phone: shop_phone || ''
     };
-
-    // Store user
-    users.push(newUser);
 
     console.log('✅ User registered:', email, 'Role:', role);
 
-    // Return success (without password)
     res.status(201).json({
       success: true,
       message: 'Registration successful',
@@ -125,7 +176,7 @@ app.post('/register', async (req, res) => {
     console.error('❌ Registration error:', error);
     res.status(500).json({
       success: false,
-      error: 'Registration failed'
+      error: 'Registration failed: ' + error.message
     });
   }
 });
@@ -144,7 +195,7 @@ app.post('/login', async (req, res) => {
     }
 
     // Find user
-    const user = users.find(u => u.email === email);
+    const user = db.prepare('SELECT * FROM users WHERE email = ?').get(email);
 
     if (!user) {
       return res.status(401).json({
@@ -165,7 +216,6 @@ app.post('/login', async (req, res) => {
 
     console.log('✅ User logged in:', email);
 
-    // Return success (without password)
     res.json({
       success: true,
       message: 'Login successful',
@@ -182,31 +232,42 @@ app.post('/login', async (req, res) => {
     console.error('❌ Login error:', error);
     res.status(500).json({
       success: false,
-      error: 'Login failed'
+      error: 'Login failed: ' + error.message
     });
   }
 });
 
 // GET /users - Get all users (for testing)
 app.get('/users', (req, res) => {
-  const usersWithoutPassword = users.map(({ password, ...user }) => user);
-  res.json({ success: true, users: usersWithoutPassword });
+  const users = db.prepare('SELECT id, name, email, phone, role, address, city, pincode, shop_name, shop_phone, createdAt FROM users').all();
+  res.json({ success: true, users });
 });
 
 // ==================== SHOP ROUTES ====================
 
-// GET /shops - Get all shops (returns single shop)
+// GET /shops - Get all shops
 app.get('/shops', (req, res) => {
+  const shops = db.prepare(`
+    SELECT s.*, 
+           (SELECT COUNT(*) FROM bookings WHERE shop_id = s.id) as total_bookings
+    FROM shops s
+  `).all();
+
+  const shopsWithServices = shops.map(shop => ({
+    ...shop,
+    services: db.prepare('SELECT * FROM services WHERE shop_id = ?').all(shop.id)
+  }));
+
   res.json({
     success: true,
-    shops: shops
+    shops: shopsWithServices
   });
 });
 
 // GET /shops/:id - Get single shop by ID
 app.get('/shops/:id', (req, res) => {
   const shopId = parseInt(req.params.id);
-  const shop = shops.find(s => s.id === shopId);
+  const shop = db.prepare('SELECT * FROM shops WHERE id = ?').get(shopId);
 
   if (!shop) {
     return res.status(404).json({
@@ -215,9 +276,14 @@ app.get('/shops/:id', (req, res) => {
     });
   }
 
+  const services = db.prepare('SELECT * FROM services WHERE shop_id = ?').all(shopId);
+
   res.json({
     success: true,
-    shop: shop
+    shop: {
+      ...shop,
+      services
+    }
   });
 });
 
@@ -225,32 +291,31 @@ app.get('/shops/:id', (req, res) => {
 
 // GET /admin/shops - Get shops for admin
 app.get('/admin/shops', (req, res) => {
+  const shops = db.prepare('SELECT * FROM shops').all();
   res.json({
     success: true,
-    shops: shops
+    shops
   });
 });
 
 // GET /admin/bookings - Get all bookings for admin
 app.get('/admin/bookings', (req, res) => {
-  // Enrich bookings with customer and shop info
-  const enrichedBookings = bookings.map(booking => {
-    const customer = users.find(u => u.id === booking.customer_id);
-    const shop = shops.find(s => s.id === booking.shop_id);
-    const service = shop?.services.find(s => s.id === booking.service_id);
-
-    return {
-      ...booking,
-      customer_name: customer?.name || 'Unknown',
-      customer_phone: customer?.phone || 'N/A',
-      shop_name: shop?.shop_name || 'Unknown',
-      service_name: service?.service_name || 'Unknown'
-    };
-  });
+  const bookings = db.prepare(`
+    SELECT b.*, 
+           u.name as customer_name, 
+           u.phone as customer_phone,
+           s.shop_name,
+           srv.service_name
+    FROM bookings b
+    LEFT JOIN users u ON b.customer_id = u.id
+    LEFT JOIN shops s ON b.shop_id = s.id
+    LEFT JOIN services srv ON b.service_id = srv.id
+    ORDER BY b.createdAt DESC
+  `).all();
 
   res.json({
     success: true,
-    bookings: enrichedBookings
+    bookings
   });
 });
 
@@ -285,34 +350,33 @@ app.post('/book', (req, res) => {
     }
 
     // Create new booking
-    const newBooking = {
-      id: bookings.length + 1,
+    const result = db.prepare(`
+      INSERT INTO bookings (
+        booking_number, customer_id, shop_id, service_id,
+        cloth_type, quantity, total_amount, discount, final_amount,
+        pickup_date, delivery_date, pickup_address, special_instructions, status
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    `).run(
       booking_number,
       customer_id,
       shop_id,
       service_id,
-      cloth_type: cloth_type || '',
-      quantity: quantity || 1,
-      total_amount: total_amount || 0,
-      discount: discount || 0,
-      final_amount: final_amount || 0,
+      cloth_type || '',
+      quantity || 1,
+      total_amount || 0,
+      discount || 0,
+      final_amount || 0,
       pickup_date,
       delivery_date,
-      pickup_address: pickup_address || '',
-      special_instructions: special_instructions || '',
-      status: status || 'Pending',
-      customer_approved: false,
-      createdAt: new Date().toISOString()
-    };
-
-    // Store booking
-    bookings.push(newBooking);
+      pickup_address || '',
+      special_instructions || '',
+      status || 'Pending'
+    );
 
     // Update shop total bookings
-    const shop = shops.find(s => s.id === shop_id);
-    if (shop) {
-      shop.total_bookings = (shop.total_bookings || 0) + 1;
-    }
+    db.prepare('UPDATE shops SET total_bookings = total_bookings + 1 WHERE id = ?').run(shop_id);
+
+    const newBooking = db.prepare('SELECT * FROM bookings WHERE id = ?').get(result.lastInsertRowid);
 
     console.log('✅ Booking created:', booking_number);
 
@@ -326,14 +390,13 @@ app.post('/book', (req, res) => {
     console.error('❌ Booking error:', error);
     res.status(500).json({
       success: false,
-      error: 'Failed to create booking'
+      error: 'Failed to create booking: ' + error.message
     });
   }
 });
 
 // GET /bookings - Get bookings for current user
 app.get('/bookings', (req, res) => {
-  // Get user ID from Authorization header (simple auth)
   const userId = parseInt(req.headers.authorization?.replace('Bearer ', ''));
 
   if (!userId) {
@@ -343,41 +406,36 @@ app.get('/bookings', (req, res) => {
     });
   }
 
-  // Filter bookings for this user
-  const userBookings = bookings.filter(b => b.customer_id === userId);
-
-  // Enrich with shop and service info
-  const enrichedBookings = userBookings.map(booking => {
-    const shop = shops.find(s => s.id === booking.shop_id);
-    const service = shop?.services.find(s => s.id === booking.service_id);
-
-    return {
-      ...booking,
-      shop_name: shop?.shop_name || 'Unknown',
-      service_name: service?.service_name || 'Unknown'
-    };
-  });
+  const userBookings = db.prepare(`
+    SELECT b.*, 
+           s.shop_name,
+           srv.service_name
+    FROM bookings b
+    LEFT JOIN shops s ON b.shop_id = s.id
+    LEFT JOIN services srv ON b.service_id = srv.id
+    WHERE b.customer_id = ?
+    ORDER BY b.createdAt DESC
+  `).all(userId);
 
   res.json({
     success: true,
-    bookings: enrichedBookings
+    bookings: userBookings
   });
 });
 
 // DELETE /booking/:id - Cancel a booking
 app.delete('/booking/:id', (req, res) => {
   const bookingId = parseInt(req.params.id);
-  const bookingIndex = bookings.findIndex(b => b.id === bookingId);
+  const booking = db.prepare('SELECT id FROM bookings WHERE id = ?').get(bookingId);
 
-  if (bookingIndex === -1) {
+  if (!booking) {
     return res.status(404).json({
       success: false,
       error: 'Booking not found'
     });
   }
 
-  // Update status to cancelled
-  bookings[bookingIndex].status = 'Cancelled';
+  db.prepare("UPDATE bookings SET status = 'Cancelled' WHERE id = ?").run(bookingId);
 
   console.log('✅ Booking cancelled:', bookingId);
 
@@ -387,10 +445,10 @@ app.delete('/booking/:id', (req, res) => {
   });
 });
 
-// PUT /booking/:id/approve - Approve a booking (customer feedback)
+// PUT /booking/:id/approve - Approve a booking
 app.put('/booking/:id/approve', (req, res) => {
   const bookingId = parseInt(req.params.id);
-  const booking = bookings.find(b => b.id === bookingId);
+  const booking = db.prepare('SELECT id FROM bookings WHERE id = ?').get(bookingId);
 
   if (!booking) {
     return res.status(404).json({
@@ -399,7 +457,7 @@ app.put('/booking/:id/approve', (req, res) => {
     });
   }
 
-  booking.customer_approved = true;
+  db.prepare('UPDATE bookings SET customer_approved = 1 WHERE id = ?').run(bookingId);
 
   console.log('✅ Booking approved:', bookingId);
 
@@ -414,7 +472,7 @@ app.put('/booking/:id/status', (req, res) => {
   const bookingId = parseInt(req.params.id);
   const { status } = req.body;
 
-  const booking = bookings.find(b => b.id === bookingId);
+  const booking = db.prepare('SELECT id FROM bookings WHERE id = ?').get(bookingId);
 
   if (!booking) {
     return res.status(404).json({
@@ -430,28 +488,32 @@ app.put('/booking/:id/status', (req, res) => {
     });
   }
 
-  booking.status = status;
+  db.prepare('UPDATE bookings SET status = ? WHERE id = ?').run(status, bookingId);
+
+  const updatedBooking = db.prepare('SELECT * FROM bookings WHERE id = ?').get(bookingId);
 
   console.log('✅ Booking status updated:', bookingId, 'to', status);
 
   res.json({
     success: true,
     message: 'Status updated successfully',
-    booking: booking
+    booking: updatedBooking
   });
 });
 
 // ==================== HEALTH CHECK ====================
 
 app.get('/health', (req, res) => {
+  const stats = {
+    users: db.prepare('SELECT COUNT(*) as count FROM users').get().count,
+    shops: db.prepare('SELECT COUNT(*) as count FROM shops').get().count,
+    bookings: db.prepare('SELECT COUNT(*) as count FROM bookings').get().count
+  };
+
   res.json({
     status: 'OK',
     message: 'Backend is running',
-    stats: {
-      users: users.length,
-      shops: shops.length,
-      bookings: bookings.length
-    }
+    stats
   });
 });
 
@@ -459,6 +521,7 @@ app.get('/health', (req, res) => {
 
 app.listen(PORT, () => {
   console.log('🚀 Server running on http://localhost:' + PORT);
+  console.log('💾 Database: ' + dbPath);
   console.log('');
   console.log('📝 API Endpoints:');
   console.log('');

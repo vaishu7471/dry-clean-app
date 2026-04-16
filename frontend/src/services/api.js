@@ -1,6 +1,6 @@
 import axios from 'axios';
 
-const API_BASE_URL = 'http://localhost:5000/api';
+const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000';
 
 const api = axios.create({
   baseURL: API_BASE_URL,
@@ -29,32 +29,27 @@ api.interceptors.response.use(
 
 // Auth APIs
 export const authAPI = {
-  login: (credentials) => api.post('/auth/login', credentials),
-  register: (data) => api.post('/auth/register', data),
-  registerAdmin: (data) => api.post('/auth/register-admin', data),
-  getMe: () => api.get('/auth/me'),
+  login: (credentials) => api.post('/login', credentials),
+  register: (data) => api.post('/register', data),
+  getMe: () => api.get('/users'),
 };
 
 // Shop APIs
 export const shopAPI = {
   getAll: () => api.get('/shops'),
   getById: (id) => api.get(`/shops/${id}`),
-  getMyShops: () => api.get('/shops/admin/my-shops'),
-  create: (data) => api.post('/shops', data),
-  update: (id, data) => api.put(`/shops/${id}`, data),
-  getServices: (shopId) => api.get(`/shops/${shopId}/services`),
-  updateService: (serviceId, data) => api.put(`/shops/services/${serviceId}`, data),
+  getServices: (shopId) => api.get(`/shops/${shopId}`),
 };
 
 // Booking APIs
 export const bookingAPI = {
-  create: (data) => api.post('/bookings', data),
-  getMyBookings: () => api.get('/bookings/customer'),
+  create: (data) => api.post('/book', data),
+  getMyBookings: () => api.get('/bookings'),
   getById: (id) => api.get(`/bookings/${id}`),
-  cancel: (id) => api.post(`/bookings/${id}/cancel`),
-  approve: (id) => api.post(`/bookings/${id}/approve`),
-  getAll: () => api.get('/bookings/admin/all'),
-  updateStatus: (id, status, notes) => api.put(`/bookings/${id}/status`, { status, notes }),
+  cancel: (id) => api.delete(`/booking/${id}`),
+  approve: (id) => api.put(`/booking/${id}/approve`),
+  getAll: () => api.get('/admin/bookings'),
+  updateStatus: (id, status) => api.put(`/booking/${id}/status`, { status }),
 };
 
 export default api;

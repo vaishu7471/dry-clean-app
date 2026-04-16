@@ -3,6 +3,8 @@ import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import '../styles/index.css';
 
+const API_BASE_URL = import.meta.env.VITE_API_URL || 'API_BASE_URL';
+
 const Home = () => {
   const { isAuthenticated, user } = useAuth();
   const navigate = useNavigate();
@@ -10,11 +12,11 @@ const Home = () => {
 
   useEffect(() => {
     loadShops();
-  }, [isAuthenticated, user]);
+  }, []);
 
   const loadShops = async () => {
     try {
-      const response = await fetch('http://localhost:5000/shops');
+      const response = await fetch('API_BASE_URL/shops');
       const data = await response.json();
 
       if (response.ok && data.shops) {

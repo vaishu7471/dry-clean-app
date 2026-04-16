@@ -2,6 +2,8 @@ import React, { useState, useEffect } from 'react';
 import { useAuth } from '../context/AuthContext';
 import '../styles/index.css';
 
+const API_BASE_URL = import.meta.env.VITE_API_URL || 'API_BASE_URL';
+
 const AdminDashboard = () => {
   const { user } = useAuth();
   const [shops, setShops] = useState([]);
@@ -20,12 +22,12 @@ const AdminDashboard = () => {
   const loadDashboardData = async () => {
     try {
       const [shopsRes, bookingsRes] = await Promise.all([
-        fetch('http://localhost:5000/admin/shops', {
+        fetch('API_BASE_URL/admin/shops', {
           headers: {
             'Authorization': `Bearer ${user.id}`
           }
         }),
-        fetch('http://localhost:5000/admin/bookings', {
+        fetch('API_BASE_URL/admin/bookings', {
           headers: {
             'Authorization': `Bearer ${user.id}`
           }
@@ -63,7 +65,7 @@ const AdminDashboard = () => {
 
   const handleUpdateStatus = async (bookingId, status) => {
     try {
-      const response = await fetch(`http://localhost:5000/booking/${bookingId}/status`, {
+      const response = await fetch(`API_BASE_URL/booking/${bookingId}/status`, {
         method: 'PUT',
         headers: {
           'Content-Type': 'application/json',
