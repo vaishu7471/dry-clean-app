@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import '../styles/index.css';
 
-const API_BASE_URL = import.meta.env.VITE_API_URL || 'API_BASE_URL';
+const API_BASE_URL = import.meta.env.VITE_API_URL || 'https://dry-clean-app.onrender.com';
 
 const CustomerDashboard = () => {
   const { user } = useAuth();
@@ -19,7 +19,7 @@ const CustomerDashboard = () => {
 
   const loadShops = async () => {
     try {
-      const response = await fetch('API_BASE_URL/shops');
+      const response = await fetch(`${API_BASE_URL}/shops`);
       const data = await response.json();
 
       if (response.ok && data.shops) {
@@ -34,7 +34,7 @@ const CustomerDashboard = () => {
 
   const loadBookings = async () => {
     try {
-      const response = await fetch('API_BASE_URL/bookings', {
+      const response = await fetch(`${API_BASE_URL}/bookings`, {
         headers: {
           'Authorization': `Bearer ${user.id}`
         }

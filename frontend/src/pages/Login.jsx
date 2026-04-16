@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import '../styles/index.css';
 
-const API_BASE_URL = import.meta.env.VITE_API_URL || 'API_BASE_URL';
+const API_BASE_URL = import.meta.env.VITE_API_URL || 'https://dry-clean-app.onrender.com';
 
 const Login = () => {
   const [formData, setFormData] = useState({ email: '', password: '' });
@@ -18,7 +18,7 @@ const Login = () => {
     setLoading(true);
 
     try {
-      const response = await fetch('API_BASE_URL/login', {
+      const response = await fetch(`${API_BASE_URL}/login`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',

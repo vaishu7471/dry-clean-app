@@ -3,7 +3,7 @@ import { useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import '../styles/index.css';
 
-const API_BASE_URL = import.meta.env.VITE_API_URL || 'API_BASE_URL';
+const API_BASE_URL = import.meta.env.VITE_API_URL || 'https://dry-clean-app.onrender.com';
 
 const BookingPage = () => {
   const navigate = useNavigate();
@@ -44,7 +44,7 @@ const BookingPage = () => {
 
   const loadServices = async () => {
     try {
-      const response = await fetch(`API_BASE_URL/shops/${shop.id}`);
+      const response = await fetch(`${API_BASE_URL}/shops/${shop.id}`);
       const data = await response.json();
 
       if (response.ok && data.shop) {
@@ -63,7 +63,7 @@ const BookingPage = () => {
 
   const loadMyBookings = async () => {
     try {
-      const response = await fetch('API_BASE_URL/bookings', {
+      const response = await fetch(`${API_BASE_URL}/bookings`, {
         headers: {
           'Authorization': `Bearer ${user.id}`
         }
@@ -145,7 +145,7 @@ const BookingPage = () => {
         status: 'Pending'
       };
 
-      const response = await fetch('API_BASE_URL/book', {
+      const response = await fetch(`${API_BASE_URL}/book`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -206,7 +206,7 @@ const BookingPage = () => {
   const handleCancel = async (bookingId) => {
     if (!window.confirm('Cancel this booking?')) return;
     try {
-      const response = await fetch(`API_BASE_URL/booking/${bookingId}`, {
+      const response = await fetch(`${API_BASE_URL}/booking/${bookingId}`, {
         method: 'DELETE',
       });
 
@@ -223,7 +223,7 @@ const BookingPage = () => {
 
   const handleApprove = async (bookingId) => {
     try {
-      const response = await fetch(`API_BASE_URL/booking/${bookingId}/approve`, {
+      const response = await fetch(`${API_BASE_URL}/booking/${bookingId}/approve`, {
         method: 'PUT',
       });
 

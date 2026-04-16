@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useAuth } from '../context/AuthContext';
 import '../styles/index.css';
 
-const API_BASE_URL = import.meta.env.VITE_API_URL || 'API_BASE_URL';
+const API_BASE_URL = import.meta.env.VITE_API_URL || 'https://dry-clean-app.onrender.com';
 
 const AdminDashboard = () => {
   const { user } = useAuth();
@@ -22,12 +22,12 @@ const AdminDashboard = () => {
   const loadDashboardData = async () => {
     try {
       const [shopsRes, bookingsRes] = await Promise.all([
-        fetch('API_BASE_URL/admin/shops', {
+        fetch(`${API_BASE_URL}/admin/shops`, {
           headers: {
             'Authorization': `Bearer ${user.id}`
           }
         }),
-        fetch('API_BASE_URL/admin/bookings', {
+        fetch(`${API_BASE_URL}/admin/bookings`, {
           headers: {
             'Authorization': `Bearer ${user.id}`
           }
