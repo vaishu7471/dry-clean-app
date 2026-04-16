@@ -5,6 +5,7 @@ import '../styles/index.css';
 const API_BASE_URL = import.meta.env.VITE_API_URL || 'https://dry-clean-app.onrender.com';
 
 const Login = () => {
+  console.log('API URL in Login:', import.meta.env.VITE_API_URL);
   const [formData, setFormData] = useState({ email: '', password: '' });
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
@@ -17,8 +18,11 @@ const Login = () => {
     setSuccess('');
     setLoading(true);
 
+    const loginUrl = `${API_BASE_URL}/login`;
+    console.log('Login URL:', loginUrl);
+
     try {
-      const response = await fetch(`${API_BASE_URL}/login`, {
+      const response = await fetch(loginUrl, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',

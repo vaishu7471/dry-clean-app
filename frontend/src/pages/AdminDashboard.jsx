@@ -65,7 +65,7 @@ const AdminDashboard = () => {
 
   const handleUpdateStatus = async (bookingId, status) => {
     try {
-      const response = await fetch(`API_BASE_URL/booking/${bookingId}/status`, {
+      const response = await fetch(`${API_BASE_URL}/booking/${bookingId}/status`, {
         method: 'PUT',
         headers: {
           'Content-Type': 'application/json',
