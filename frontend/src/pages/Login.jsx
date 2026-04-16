@@ -1,11 +1,12 @@
 import React, { useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
+import { useAuth } from '../context/AuthContext';
 import '../styles/index.css';
 
 const API_BASE_URL = import.meta.env.VITE_API_URL || 'https://dry-clean-app.onrender.com';
 
 const Login = () => {
-  console.log('API URL in Login:', import.meta.env.VITE_API_URL);
+  const { login: authLogin } = useAuth();
   const [formData, setFormData] = useState({ email: '', password: '' });
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
@@ -18,37 +19,21 @@ const Login = () => {
     setSuccess('');
     setLoading(true);
 
-    const loginUrl = `${API_BASE_URL}/login`;
-    console.log('Login URL:', loginUrl);
-
     try {
-      const response = await fetch(loginUrl, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify(formData),
-      });
+      const result = await authLogin(formData);
 
-      const data = await response.json();
-
-      if (!response.ok) {
-        setError(data.message || data.error || 'Login failed');
+      if (!result.success) {
+        setError(result.error || 'Login failed');
         setLoading(false);
         return;
       }
 
-      // ✅ SAVE USER PROPERLY
-      localStorage.setItem('user', JSON.stringify(data.user));
-
-      // ✅ DEBUG
-      console.log('Logged in user:', data.user);
-
-      // ✅ ROLE CHECK
-      if (data.user.role === 'admin') {
-        navigate('/admin');
+      // Role check with fallback
+      const userRole = result.user?.role || 'customer';
+      if (userRole === 'admin') {
+        navigate('/admin', { replace: true });
       } else {
-        navigate('/customer');
+        navigate('/customer', { replace: true });
       }
     } catch (err) {
       setError('Cannot connect to server. Please ensure backend is running.');

@@ -11,10 +11,6 @@ const AdminDashboard = () => {
   const [stats, setStats] = useState({ totalBookings: 0, pending: 0, washing: 0, ironing: 0, ready: 0, completed: 0, revenue: 0 });
   const [loading, setLoading] = useState(true);
 
-  // ✅ DEBUG: If this does NOT print, routing problem
-  console.log('Admin Page Loaded');
-  console.log('Current user:', user);
-
   useEffect(() => {
     loadDashboardData();
   }, []);
@@ -99,6 +95,10 @@ const AdminDashboard = () => {
   };
 
   if (loading) return <div className="loading">Loading dashboard...</div>;
+
+  if (!user) {
+    return <div className="loading">Please login first...</div>;
+  }
 
   return (
     <div className="admin-dashboard">
@@ -214,7 +214,7 @@ const AdminDashboard = () => {
                 <div className="shop-services">
                   <div className="shop-services-title">🧼 Services Available</div>
                   <div className="service-list">
-                    {shops[0].services.map(service => (
+                    {(shops[0].services || []).map(service => (
                       <span key={service.id} className="service-tag">
                         {service.service_name}
                         <span className="service-tag-price">₹{service.base_price}</span>
